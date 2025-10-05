@@ -19,7 +19,7 @@ public class RoomListItem : MonoBehaviour
 
     public void JoinLobby()
     {
-        LobbyManager.Instance.JoinLobby(roomId);
+        LobbyManager.Instance.JoinLobbyById(roomId);
     }
     
 }

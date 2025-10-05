@@ -7,15 +7,22 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using Random = UnityEngine.Random;
+using Unity.Services.Relay;
+using Unity.Services.Relay.Models;
+using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
+using Unity.Networking.Transport.Relay;
+using UnityEngine.SceneManagement;
 
 public class LobbyManager : MonoBehaviour
 {
     public static LobbyManager Instance;
     private const int MAX_PLAYERS_PER_ROOM = 20;
+    private const string CONNECTION_TYPE = "dtls";
 
     private void Awake()
     {
-        if(Instance == null)
+        if (Instance == null)
             Instance = this;
 
     }
@@ -27,14 +34,15 @@ public class LobbyManager : MonoBehaviour
         await AuthenticationService.Instance.SignInAnonymouslyAsync();
     }
 
-    public async void CreateLobby(string lobbyName, string lobbyPassword)
+    public async void CreateLobby(string lobbyName, string lobbyPassword = "")
     {
         try
         {
+            bool isPrivate = !string.IsNullOrEmpty(lobbyPassword);
             var options = new CreateLobbyOptions
             {
-                Password = lobbyPassword,
-                IsPrivate = true,
+                Password = isPrivate ? lobbyPassword : null,
+                IsPrivate = isPrivate,
                 Data = new Dictionary<string, DataObject>
                 {
                     { "roomName", new DataObject(DataObject.VisibilityOptions.Public, lobbyName) },
@@ -42,8 +50,13 @@ public class LobbyManager : MonoBehaviour
 
             };
             Lobby lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, MAX_PLAYERS_PER_ROOM, options);
+            Debug.Log("Created room " + lobby.Name);
 
-            Debug.Log("Created Lobby " +lobby.Id + " " + lobby.Name);
+            Allocation alloc = await CreateRelayAllocation();
+            UpdateLobbyWithRelayCode(lobby, alloc);
+            StartConnection(alloc);
+
+            Debug.Log("Joined room");
         }
         catch (LobbyServiceException ex)
         {
@@ -51,29 +64,6 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
-    public async void CreatePasswordlessLobby(string lobbyName)
-    {
-        try
-        {
-            var options = new CreateLobbyOptions
-            {
-                Data = new Dictionary<string, DataObject>
-                {
-                    { "roomName", new DataObject(DataObject.VisibilityOptions.Public, lobbyName) },
-                }
-
-            };
-            Lobby lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, MAX_PLAYERS_PER_ROOM, options);
-
-            Debug.Log("Created Lobby " + lobby.Id + " " + lobby.Name);
-
-        }
-        catch (LobbyServiceException ex)
-        {
-            Debug.Log(ex);
-        }
-
-    }
 
     public async void JoinLobby(string lobbyName)
     {
@@ -85,8 +75,8 @@ public class LobbyManager : MonoBehaviour
                 Debug.Log("Room Not Found");
                 return;
             }
-            Lobby lobby = await LobbyService.Instance.JoinLobbyByIdAsync(roomId);
-            Debug.Log("Joined Lobby " + lobby.Name);
+
+            JoinLobbyById(roomId);
         }
         catch (LobbyServiceException ex)
         {
@@ -94,11 +84,14 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
-    private async void JoinLobbyById(string lobbyId)
+    public async void JoinLobbyById(string lobbyId)
     {
         try
         {
             Lobby lobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId);
+
+            var alloc = await CreateRelayJoinAllocation(lobby);
+            JoinConnection(alloc);
             Debug.Log("Joined Lobby " + lobby.Name);
         }
         catch (LobbyServiceException ex)
@@ -133,7 +126,7 @@ public class LobbyManager : MonoBehaviour
             var lobbies = await FetchLobbies();
             if (lobbies.Count == 0)
                 return;
-            
+
             lobbies = lobbies.Where(x => x.Players.Count < x.MaxPlayers).ToList();
             int randomIndex = Random.Range(0, lobbies.Count - 1);
 
@@ -169,5 +162,49 @@ public class LobbyManager : MonoBehaviour
             return null;
         }
 
+    }
+
+
+    static async Task<Allocation> CreateRelayAllocation()
+    {
+        Allocation alloc = await RelayService.Instance.CreateAllocationAsync(MAX_PLAYERS_PER_ROOM - 1);
+        return alloc;
+    }
+    static async Task<JoinAllocation> CreateRelayJoinAllocation(Lobby lobby)
+    {
+        var code = lobby.Data["relayCode"].Value;
+        var joinAlloc = await RelayService.Instance.JoinAllocationAsync(code);
+        return joinAlloc;
+    }
+    static async void UpdateLobbyWithRelayCode(Lobby lobby, Allocation alloc)
+    {
+        var code = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
+        await LobbyService.Instance.UpdateLobbyAsync(lobby.Id, new UpdateLobbyOptions
+        {
+            Data = new Dictionary<string, DataObject> {
+            { "relayCode", new DataObject(DataObject.VisibilityOptions.Member, code) }
+        }
+        });
+    }
+
+    static void StartConnection(Allocation alloc)
+    {
+        RelayServerData serverData = alloc.ToRelayServerData(CONNECTION_TYPE);
+        ConfigureRelay(serverData);
+        NetworkManager.Singleton.StartHost();
+        NetworkManager.Singleton.SceneManager.LoadScene("Room", LoadSceneMode.Single);
+    }
+
+    static void JoinConnection(JoinAllocation joinAllocation)
+    {
+        RelayServerData serverData = joinAllocation.ToRelayServerData(CONNECTION_TYPE);
+        ConfigureRelay(serverData);
+        NetworkManager.Singleton.StartClient();
+    }
+
+    static void ConfigureRelay(RelayServerData data)
+    {
+        var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+        transport.SetRelayServerData(data);
     }
 }
