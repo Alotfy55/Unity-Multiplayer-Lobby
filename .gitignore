@@ -9,6 +9,7 @@ UserSettings/
 sysinfo.txt
 
 .vs/
+.vsconfig
 .vscode/
 .idea/
 *.csproj

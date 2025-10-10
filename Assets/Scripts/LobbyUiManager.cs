@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using Unity.Services.Lobbies.Models;
+using Unity.Services.Relay;
 using UnityEngine;
 
 public class LobbyUiManager : MonoBehaviour
@@ -27,17 +28,14 @@ public class LobbyUiManager : MonoBehaviour
     public void CreateRoom()
     {
         var roomName = RoomName.text;
-        var roomPassword = RoomPassword.text;
+        var roomPassword = RoomPassword.text.Length > 0 ? RoomPassword.text : null;
         Debug.Log("Creating Room, Room Name:" + roomName);
         if (roomName.Length == 0)
         {
             return;
         }
 
-        if (roomPassword.Length == 0)
-            LobbyManager.Instance.CreatePasswordlessLobby(roomName);
-        else
-            LobbyManager.Instance.CreateLobby(roomName, roomPassword);
+        LobbyManager.Instance.CreateLobby(roomName, roomPassword);
     }
 
     public async void ListRooms()
@@ -77,6 +75,10 @@ public class LobbyUiManager : MonoBehaviour
         ChangeMenu(MainSceneMenus.MainMenu);
     }
 
+    public void CloseApplication()
+    {
+        Application.Quit();
+    }
     private void ChangeMenu(MainSceneMenus newMenu)
     {
         foreach (var menu in SceneMenus)
