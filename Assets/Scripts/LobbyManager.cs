@@ -1,43 +1,47 @@
-using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
+using Unity.Networking.Transport.Relay;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Linq;
-using Random = UnityEngine.Random;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
-using Unity.Netcode;
-using Unity.Netcode.Transports.UTP;
-using Unity.Networking.Transport.Relay;
+using UnityEngine;
 using UnityEngine.SceneManagement;
+using Random = UnityEngine.Random;
 
 public class LobbyManager : MonoBehaviour
 {
     public static LobbyManager Instance;
     private const int MAX_PLAYERS_PER_ROOM = 20;
-    private const string CONNECTION_TYPE = "dtls";
+    private const string CONNECTION_TYPE = "udp";
 
     private void Awake()
     {
         if (Instance == null)
             Instance = this;
-
+        DontDestroyOnLoad(gameObject);
     }
 
     private async void Start()
     {
         await UnityServices.InitializeAsync();
 
-        await AuthenticationService.Instance.SignInAnonymouslyAsync();
+        if (!AuthenticationService.Instance.IsSignedIn)
+            await AuthenticationService.Instance.SignInAnonymouslyAsync();
     }
 
-    public async void CreateLobby(string lobbyName, string lobbyPassword = "")
+    public async Task CreateLobby(string lobbyName, string lobbyPassword = "")
     {
         try
         {
+            var _lobbyName = string.IsNullOrEmpty(lobbyName) ? "Room" + Random.Range(1000, 9999) : lobbyName;
             bool isPrivate = !string.IsNullOrEmpty(lobbyPassword);
             var options = new CreateLobbyOptions
             {
@@ -45,17 +49,21 @@ public class LobbyManager : MonoBehaviour
                 IsPrivate = isPrivate,
                 Data = new Dictionary<string, DataObject>
                 {
-                    { "roomName", new DataObject(DataObject.VisibilityOptions.Public, lobbyName) },
+                    { "roomName", new DataObject(DataObject.VisibilityOptions.Public, _lobbyName) },
+                },
+                Player = new Player
+                {
+                    Profile = new PlayerProfile(GameConstants.Instance._userName)
                 }
-
             };
-            Lobby lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, MAX_PLAYERS_PER_ROOM, options);
+            Lobby lobby = await LobbyService.Instance.CreateLobbyAsync(_lobbyName, MAX_PLAYERS_PER_ROOM, options);
             Debug.Log("Created room " + lobby.Name);
 
             Allocation alloc = await CreateRelayAllocation();
-            UpdateLobbyWithRelayCode(lobby, alloc);
             StartConnection(alloc);
+            await UpdateLobbyWithRelayCode(lobby, alloc);
 
+            UpdatePlayersList(lobby);
             Debug.Log("Joined room");
         }
         catch (LobbyServiceException ex)
@@ -64,34 +72,25 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
-
-    public async void JoinLobby(string lobbyName)
+    public async void JoinLobby(string lobbyId)
     {
         try
         {
-            string roomId = await GetRoomIdFromName(lobbyName);
-            if (roomId == null)
+            var options = new JoinLobbyByIdOptions
             {
-                Debug.Log("Room Not Found");
-                return;
-            }
+                Player = new Player
+                {
+                    Profile = new PlayerProfile(GameConstants.Instance._userName)
+                }
+            };
+            Lobby lobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
 
-            JoinLobbyById(roomId);
-        }
-        catch (LobbyServiceException ex)
-        {
-            Debug.Log(ex);
-        }
-    }
-
-    public async void JoinLobbyById(string lobbyId)
-    {
-        try
-        {
-            Lobby lobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId);
 
             var alloc = await CreateRelayJoinAllocation(lobby);
             JoinConnection(alloc);
+
+            var joinedLobby = await LobbyService.Instance.GetLobbyAsync(lobby.Id);
+            UpdatePlayersList(joinedLobby);
             Debug.Log("Joined Lobby " + lobby.Name);
         }
         catch (LobbyServiceException ex)
@@ -106,10 +105,6 @@ public class LobbyManager : MonoBehaviour
             QueryResponse response = await LobbyService.Instance.QueryLobbiesAsync();
 
             Debug.Log("Fetched " + response.Results.Count + " lobbies");
-            foreach (var lobby in response.Results)
-            {
-                Debug.Log(lobby.Name);
-            }
             return response.Results;
         }
         catch (LobbyServiceException ex)
@@ -128,55 +123,30 @@ public class LobbyManager : MonoBehaviour
                 return;
 
             lobbies = lobbies.Where(x => x.Players.Count < x.MaxPlayers).ToList();
-            int randomIndex = Random.Range(0, lobbies.Count - 1);
+            int randomIndex = Random.Range(0, lobbies.Count);
 
-            JoinLobbyById(lobbies[randomIndex].Id);
+            JoinLobby(lobbies[randomIndex].Id);
         }
         catch (LobbyServiceException ex)
         {
             Debug.Log(ex);
         }
     }
-
-    private async Task<string> GetRoomIdFromName(string roomName)
-    {
-        try
-        {
-            QueryResponse response = await LobbyService.Instance.QueryLobbiesAsync(new QueryLobbiesOptions
-            {
-                Filters = new List<QueryFilter>
-            {
-                new QueryFilter(
-                    field: QueryFilter.FieldOptions.S1, // S1 = Lobby name by default
-                op: QueryFilter.OpOptions.EQ,
-                value: roomName
-                )
-            }
-            });
-
-            return response.Results[0].Id;
-        }
-        catch (LobbyServiceException ex)
-        {
-            Debug.Log(ex);
-            return null;
-        }
-
-    }
-
 
     static async Task<Allocation> CreateRelayAllocation()
     {
         Allocation alloc = await RelayService.Instance.CreateAllocationAsync(MAX_PLAYERS_PER_ROOM - 1);
         return alloc;
     }
+    
     static async Task<JoinAllocation> CreateRelayJoinAllocation(Lobby lobby)
     {
         var code = lobby.Data["relayCode"].Value;
         var joinAlloc = await RelayService.Instance.JoinAllocationAsync(code);
         return joinAlloc;
     }
-    static async void UpdateLobbyWithRelayCode(Lobby lobby, Allocation alloc)
+    
+    static async Task UpdateLobbyWithRelayCode(Lobby lobby, Allocation alloc)
     {
         var code = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
         await LobbyService.Instance.UpdateLobbyAsync(lobby.Id, new UpdateLobbyOptions
@@ -206,5 +176,12 @@ public class LobbyManager : MonoBehaviour
     {
         var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
         transport.SetRelayServerData(data);
+    }
+
+    static void UpdatePlayersList(Lobby lobby)
+    {
+        // TODO: Check returned lobby players profiles
+        var playerNames = lobby.Players.Select(p => p.Profile.Name).ToList();
+        PlayerListManager.Instance.UpdatePlayerList(playerNames);
     }
 }

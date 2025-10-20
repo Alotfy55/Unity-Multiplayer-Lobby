@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using TMPro;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
@@ -25,17 +26,21 @@ public class LobbyUiManager : MonoBehaviour
     Transform roomListItem;
 
 
-    public void CreateRoom()
+    public async void CreateRoom()
     {
         var roomName = RoomName.text;
-        var roomPassword = RoomPassword.text.Length > 0 ? RoomPassword.text : null;
-        Debug.Log("Creating Room, Room Name:" + roomName);
-        if (roomName.Length == 0)
+        var roomPassword = RoomPassword.text;
+        if (roomName.Length == 0 || roomPassword.Length == 0)
         {
             return;
         }
 
-        LobbyManager.Instance.CreateLobby(roomName, roomPassword);
+        await LobbyManager.Instance.CreateLobby(roomName, roomPassword);
+    }
+
+    public async void CreateRandomRoom()
+    {
+        await LobbyManager.Instance.CreateLobby("Room " + UnityEngine.Random.Range(1000, 9999));
     }
 
     public async void ListRooms()
@@ -83,6 +88,12 @@ public class LobbyUiManager : MonoBehaviour
     {
         foreach (var menu in SceneMenus)
             menu.gameObject.SetActive(menu.menuID == newMenu);
+    }
+
+    public void SetUsername()
+    {
+        var username = usernameInputField.text;
+        GameConstants.Instance.SetUserName(username);
     }
 
 }

@@ -1,0 +1,23 @@
+using UnityEngine;
+
+public class GameConstants : MonoBehaviour
+{
+    public static GameConstants Instance;
+    public string _userName;
+
+    private void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+    public void SetUserName(string userName)
+    {
+        if (string.IsNullOrEmpty(userName))
+            _userName = "Player " + Random.Range(1000, 9999);
+        else
+            _userName = userName;
+
+        Debug.Log("Username set to: " + _userName);
+    }
+}
