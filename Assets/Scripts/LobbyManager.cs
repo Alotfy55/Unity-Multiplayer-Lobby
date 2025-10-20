@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -21,6 +22,7 @@ public class LobbyManager : MonoBehaviour
     public static LobbyManager Instance;
     private const int MAX_PLAYERS_PER_ROOM = 20;
     private const string CONNECTION_TYPE = "udp";
+    private bool isHost = false;
 
     private void Awake()
     {
@@ -53,18 +55,24 @@ public class LobbyManager : MonoBehaviour
                 },
                 Player = new Player
                 {
-                    Profile = new PlayerProfile(GameConstants.Instance._userName)
+                    Data = new Dictionary<string, PlayerDataObject>
+                    {
+                        { "username", new PlayerDataObject(
+                            visibility: PlayerDataObject.VisibilityOptions.Member,
+                            value: GameConstants.Instance._userName) }
+                    }
                 }
             };
             Lobby lobby = await LobbyService.Instance.CreateLobbyAsync(_lobbyName, MAX_PLAYERS_PER_ROOM, options);
             Debug.Log("Created room " + lobby.Name);
 
+            isHost = true;
+            GameConstants.Instance._lobbyId = lobby.Id;
+            StartHeartbeatLoop();
+
             Allocation alloc = await CreateRelayAllocation();
             StartConnection(alloc);
             await UpdateLobbyWithRelayCode(lobby, alloc);
-
-            UpdatePlayersList(lobby);
-            Debug.Log("Joined room");
         }
         catch (LobbyServiceException ex)
         {
@@ -80,7 +88,12 @@ public class LobbyManager : MonoBehaviour
             {
                 Player = new Player
                 {
-                    Profile = new PlayerProfile(GameConstants.Instance._userName)
+                    Data = new Dictionary<string, PlayerDataObject>
+                    {
+                        { "username", new PlayerDataObject(
+                            visibility: PlayerDataObject.VisibilityOptions.Member,
+                            value: GameConstants.Instance._userName) }
+                    }
                 }
             };
             Lobby lobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId, options);
@@ -89,8 +102,8 @@ public class LobbyManager : MonoBehaviour
             var alloc = await CreateRelayJoinAllocation(lobby);
             JoinConnection(alloc);
 
+            GameConstants.Instance._lobbyId = lobby.Id;
             var joinedLobby = await LobbyService.Instance.GetLobbyAsync(lobby.Id);
-            UpdatePlayersList(joinedLobby);
             Debug.Log("Joined Lobby " + lobby.Name);
         }
         catch (LobbyServiceException ex)
@@ -178,10 +191,61 @@ public class LobbyManager : MonoBehaviour
         transport.SetRelayServerData(data);
     }
 
-    static void UpdatePlayersList(Lobby lobby)
+    public static async Task<List<Player>> GetPlayersList(string lobbyId)
     {
-        // TODO: Check returned lobby players profiles
-        var playerNames = lobby.Players.Select(p => p.Profile.Name).ToList();
-        PlayerListManager.Instance.UpdatePlayerList(playerNames);
+        var lobby = await LobbyService.Instance.GetLobbyAsync(lobbyId);
+        return lobby.Players;
+    }
+
+    private async void StartHeartbeatLoop()
+    {
+        while (isHost && enabled)
+        {
+            await LobbyService.Instance.SendHeartbeatPingAsync(GameConstants.Instance._lobbyId);
+            await Task.Delay(15000);
+        }
+    }
+
+    private 
+        async void OnApplicationQuit()
+    {
+        //if (!isHost) await LeaveLobby();
+        //else await DeleteLobby();
+    }
+
+    private async void OnDestroy()
+    {
+        //if (!isHost) await LeaveLobby();
+        //else await DeleteLobby();
+    }
+
+    public async Task RemovePlayer(string playerId)
+    {
+        try
+        {
+            await LobbyService.Instance.RemovePlayerAsync(GameConstants.Instance._lobbyId,playerId);
+            Debug.Log("Left lobby.");
+            
+        }
+        catch (LobbyServiceException ex)
+        {
+            Debug.Log(ex);
+        }
+    }
+
+    private async Task DeleteLobby()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(GameConstants.Instance._lobbyId))
+            {
+                await LobbyService.Instance.DeleteLobbyAsync(GameConstants.Instance._lobbyId);
+                Debug.Log("Deleted lobby on quit.");
+            }
+        }
+        catch (LobbyServiceException ex)
+        {
+            Debug.Log(ex);
+        }
     }
 }

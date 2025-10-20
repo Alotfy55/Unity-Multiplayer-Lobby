@@ -4,6 +4,7 @@ public class GameConstants : MonoBehaviour
 {
     public static GameConstants Instance;
     public string _userName;
+    public string _lobbyId;
 
     private void Awake()
     {
