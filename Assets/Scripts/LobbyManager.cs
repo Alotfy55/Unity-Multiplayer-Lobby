@@ -13,6 +13,7 @@ using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
+using Unity.Services.Vivox;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Random = UnityEngine.Random;
@@ -35,8 +36,14 @@ public class LobbyManager : MonoBehaviour
     {
         await UnityServices.InitializeAsync();
 
+        var newPlayerId = Guid.NewGuid().ToString("N").Substring(0, 8);
+
+        AuthenticationService.Instance.SwitchProfile(newPlayerId);
+
         if (!AuthenticationService.Instance.IsSignedIn)
             await AuthenticationService.Instance.SignInAnonymouslyAsync();
+
+        await VivoxManager.Instance.Initiallize();
     }
 
     public async Task CreateLobby(string lobbyName, string lobbyPassword = "")
@@ -68,11 +75,14 @@ public class LobbyManager : MonoBehaviour
 
             isHost = true;
             GameConstants.Instance._lobbyId = lobby.Id;
-            StartHeartbeatLoop();
 
             Allocation alloc = await CreateRelayAllocation();
             StartConnection(alloc);
+
+            await VivoxManager.Instance.ConnectToChannel(lobby.Id);
+
             await UpdateLobbyWithRelayCode(lobby, alloc);
+            StartHeartbeatLoop();
         }
         catch (LobbyServiceException ex)
         {
@@ -101,10 +111,8 @@ public class LobbyManager : MonoBehaviour
 
             var alloc = await CreateRelayJoinAllocation(lobby);
             JoinConnection(alloc);
-
+            await VivoxManager.Instance.ConnectToChannel(lobby.Id);
             GameConstants.Instance._lobbyId = lobby.Id;
-            var joinedLobby = await LobbyService.Instance.GetLobbyAsync(lobby.Id);
-            Debug.Log("Joined Lobby " + lobby.Name);
         }
         catch (LobbyServiceException ex)
         {
@@ -118,7 +126,7 @@ public class LobbyManager : MonoBehaviour
             QueryResponse response = await LobbyService.Instance.QueryLobbiesAsync();
 
             Debug.Log("Fetched " + response.Results.Count + " lobbies");
-            return response.Results;
+            return response.Results.Where(x => x.Created != x.LastUpdated).ToList();
         }
         catch (LobbyServiceException ex)
         {
@@ -151,14 +159,23 @@ public class LobbyManager : MonoBehaviour
         Allocation alloc = await RelayService.Instance.CreateAllocationAsync(MAX_PLAYERS_PER_ROOM - 1);
         return alloc;
     }
-    
+
     static async Task<JoinAllocation> CreateRelayJoinAllocation(Lobby lobby)
     {
-        var code = lobby.Data["relayCode"].Value;
-        var joinAlloc = await RelayService.Instance.JoinAllocationAsync(code);
-        return joinAlloc;
+        try
+        {
+            var code = lobby.Data["relayCode"].Value;
+            var joinAlloc = await RelayService.Instance.JoinAllocationAsync(code);
+            return joinAlloc;
+        }
+        catch (Exception ex)
+        {
+            Debug.Log(ex);
+            await LobbyService.Instance.RemovePlayerAsync(lobby.Id, AuthenticationService.Instance.PlayerId);
+            Debug.LogError("Failed to join relay. You have been removed from the lobby.");
+            throw;
+        }
     }
-    
     static async Task UpdateLobbyWithRelayCode(Lobby lobby, Allocation alloc)
     {
         var code = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
@@ -193,39 +210,36 @@ public class LobbyManager : MonoBehaviour
 
     public static async Task<List<Player>> GetPlayersList(string lobbyId)
     {
-        var lobby = await LobbyService.Instance.GetLobbyAsync(lobbyId);
-        return lobby.Players;
+        try
+        {
+            var lobby = await LobbyService.Instance.GetLobbyAsync(lobbyId);
+            return lobby.Players;
+        }
+        catch (LobbyServiceException ex)
+        {
+            Debug.Log(ex);
+            return new List<Player>();
+        }
     }
 
     private async void StartHeartbeatLoop()
     {
-        while (isHost && enabled)
+        while (isHost && enabled && LobbyService.Instance != null && this != null)
         {
             await LobbyService.Instance.SendHeartbeatPingAsync(GameConstants.Instance._lobbyId);
             await Task.Delay(15000);
         }
     }
 
-    private 
-        async void OnApplicationQuit()
-    {
-        //if (!isHost) await LeaveLobby();
-        //else await DeleteLobby();
-    }
 
-    private async void OnDestroy()
-    {
-        //if (!isHost) await LeaveLobby();
-        //else await DeleteLobby();
-    }
-
-    public async Task RemovePlayer(string playerId)
+    public async Task RemovePlayer()
     {
         try
         {
-            await LobbyService.Instance.RemovePlayerAsync(GameConstants.Instance._lobbyId,playerId);
+            await HostMigration();
+            await LobbyService.Instance.RemovePlayerAsync(GameConstants.Instance._lobbyId, AuthenticationService.Instance.PlayerId);
+            NetworkManager.Singleton.Shutdown();
             Debug.Log("Left lobby.");
-            
         }
         catch (LobbyServiceException ex)
         {
@@ -233,14 +247,20 @@ public class LobbyManager : MonoBehaviour
         }
     }
 
-    private async Task DeleteLobby()
+    public async Task HostMigration()
     {
         try
         {
-            if (!string.IsNullOrEmpty(GameConstants.Instance._lobbyId))
+            var lobby = await LobbyService.Instance.GetLobbyAsync(GameConstants.Instance._lobbyId);
+            var players = lobby.Players;
+            var newHost = players.FirstOrDefault(p => p.Id != lobby.HostId);
+            if (newHost != null)
             {
-                await LobbyService.Instance.DeleteLobbyAsync(GameConstants.Instance._lobbyId);
-                Debug.Log("Deleted lobby on quit.");
+                await LobbyService.Instance.UpdateLobbyAsync(lobby.Id, new UpdateLobbyOptions
+                {
+                    HostId = newHost.Id
+                });
+                Debug.Log("Host migrated to " + newHost.Data["username"].Value);
             }
         }
         catch (LobbyServiceException ex)
@@ -248,4 +268,6 @@ public class LobbyManager : MonoBehaviour
             Debug.Log(ex);
         }
     }
+
+
 }

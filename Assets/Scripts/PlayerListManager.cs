@@ -49,7 +49,6 @@ public class PlayerListManager : NetworkBehaviour
         {
             playersList.Add(new FixedString64Bytes(playerName));
         }
-        Debug.Log("Updated player list with " + playersList.Count + " players.");
     }
 
 }

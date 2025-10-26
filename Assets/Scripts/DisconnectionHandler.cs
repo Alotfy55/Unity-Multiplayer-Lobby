@@ -6,25 +6,27 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.Services.Lobbies.Models;
 using System.Linq;
+using Unity.Services.Vivox;
+using UnityEngine.SceneManagement;
+using System;
 
 public class DisconnectHandler : MonoBehaviour
 {
-    [SerializeField] PlayerListManager roster; // your NetworkList-backed roster UI
 
     void OnEnable()
     {
-        var nm = NetworkManager.Singleton;
-        nm.OnClientConnectedCallback += OnClientConnected;
-        nm.OnClientDisconnectCallback += OnClientDisconnected;
+        var networkManager = NetworkManager.Singleton;
+        networkManager.OnClientConnectedCallback += OnClientConnected;
+        networkManager.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
     void OnDisable()
     {
-        var nm = NetworkManager.Singleton;
-        if (nm != null)
+        var networkManager = NetworkManager.Singleton;
+        if (networkManager != null)
         {
-            nm.OnClientConnectedCallback -= OnClientConnected;
-            nm.OnClientDisconnectCallback -= OnClientDisconnected;
+            networkManager.OnClientConnectedCallback -= OnClientConnected;
+            networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
         }
     }
 
@@ -51,8 +53,10 @@ public class DisconnectHandler : MonoBehaviour
                 Debug.Log($"Removing player {playerId} from lobby {GameConstants.Instance._lobbyId}");
                 if (!string.IsNullOrEmpty(playerId))
                     await LobbyService.Instance.RemovePlayerAsync(GameConstants.Instance._lobbyId, playerId);
+
+                SceneManager.LoadScene("Lobby");
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Debug.LogWarning($"Lobby remove failed (will timeout anyway): {e.Message}");
             }

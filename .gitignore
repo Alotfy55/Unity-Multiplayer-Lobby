@@ -42,3 +42,5 @@ Thumbs.db
 # Local secrets/examples
 Assets/Resources/Secrets.asset
 Assets/Resources/Secrets.example.asset
+
+.env
