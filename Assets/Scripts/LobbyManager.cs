@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -13,7 +11,6 @@ using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using Unity.Services.Relay;
 using Unity.Services.Relay.Models;
-using Unity.Services.Vivox;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Random = UnityEngine.Random;
@@ -21,7 +18,7 @@ using Random = UnityEngine.Random;
 public class LobbyManager : MonoBehaviour
 {
     public static LobbyManager Instance;
-    private const int MAX_PLAYERS_PER_ROOM = 20;
+    private const int MAX_PLAYERS_PER_ROOM = 2;
     private const string CONNECTION_TYPE = "udp";
     private bool isHost = false;
 
@@ -38,10 +35,12 @@ public class LobbyManager : MonoBehaviour
 
         var newPlayerId = Guid.NewGuid().ToString("N").Substring(0, 8);
 
-        AuthenticationService.Instance.SwitchProfile(newPlayerId);
 
         if (!AuthenticationService.Instance.IsSignedIn)
+        {
+            AuthenticationService.Instance.SwitchProfile(newPlayerId);
             await AuthenticationService.Instance.SignInAnonymouslyAsync();
+        }
 
         await VivoxManager.Instance.Initiallize();
     }
@@ -87,6 +86,7 @@ public class LobbyManager : MonoBehaviour
         catch (LobbyServiceException ex)
         {
             Debug.Log(ex);
+            ToastNotification.Show("Failed to create room");
         }
     }
 
@@ -102,7 +102,8 @@ public class LobbyManager : MonoBehaviour
                     {
                         { "username", new PlayerDataObject(
                             visibility: PlayerDataObject.VisibilityOptions.Member,
-                            value: GameConstants.Instance._userName) }
+                            value: GameConstants.Instance._userName) 
+                        }
                     }
                 }
             };
@@ -117,6 +118,7 @@ public class LobbyManager : MonoBehaviour
         catch (LobbyServiceException ex)
         {
             Debug.Log(ex);
+            ToastNotification.Show("Failed to join room");
         }
     }
     public async Task<List<Lobby>> FetchLobbies()
@@ -141,7 +143,10 @@ public class LobbyManager : MonoBehaviour
         {
             var lobbies = await FetchLobbies();
             if (lobbies.Count == 0)
+            {
+                ToastNotification.Show("No available rooms to join");
                 return;
+            }
 
             lobbies = lobbies.Where(x => x.Players.Count < x.MaxPlayers).ToList();
             int randomIndex = Random.Range(0, lobbies.Count);
@@ -173,6 +178,7 @@ public class LobbyManager : MonoBehaviour
             Debug.Log(ex);
             await LobbyService.Instance.RemovePlayerAsync(lobby.Id, AuthenticationService.Instance.PlayerId);
             Debug.LogError("Failed to join relay. You have been removed from the lobby.");
+            ToastNotification.Show("Failed to join room");
             throw;
         }
     }
@@ -182,8 +188,10 @@ public class LobbyManager : MonoBehaviour
         await LobbyService.Instance.UpdateLobbyAsync(lobby.Id, new UpdateLobbyOptions
         {
             Data = new Dictionary<string, DataObject> {
-            { "relayCode", new DataObject(DataObject.VisibilityOptions.Member, code) }
-        }
+                { 
+                    "relayCode", new DataObject(DataObject.VisibilityOptions.Member, code) 
+                }
+            }
         });
     }
 

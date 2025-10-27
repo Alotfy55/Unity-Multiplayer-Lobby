@@ -18,7 +18,7 @@ public class GameConstants : MonoBehaviour
             _userName = "Player " + Random.Range(1000, 9999);
         else
             _userName = userName;
-
+        ToastNotification.Show("Welcome " + _userName);
         Debug.Log("Username set to: " + _userName);
     }
 }
