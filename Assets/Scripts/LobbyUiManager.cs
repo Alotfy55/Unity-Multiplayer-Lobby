@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using TMPro;
 using Unity.Services.Lobbies.Models;
@@ -30,12 +31,42 @@ public class LobbyUiManager : MonoBehaviour
     {
         var roomName = RoomName.text;
         var roomPassword = RoomPassword.text;
-        if (roomName.Length == 0 || roomPassword.Length == 0)
+        if (string.IsNullOrEmpty(roomName))
+            ToastNotification.Show("Room name cannot be empty");
+        
+        if (string.IsNullOrEmpty(roomPassword) || roomPassword.Length < 8)
         {
+            ToastNotification.Show("Room password must be at least 8 characters long");
+            return;
+        }
+        
+
+        await LobbyManager.Instance.CreateLobby(roomName, roomPassword);
+    }
+    
+    public async void JoinRoom()
+    {
+        var roomName = RoomName.text;
+        var roomPassword = RoomPassword.text;
+        if (string.IsNullOrEmpty(roomName))
+            ToastNotification.Show("Room name cannot be empty");
+        
+        if (string.IsNullOrEmpty(roomPassword) || roomPassword.Length < 8)
+        {
+            ToastNotification.Show("Room password must be at least 8 characters long");
             return;
         }
 
-        await LobbyManager.Instance.CreateLobby(roomName, roomPassword);
+        var lobbies = await LobbyManager.Instance.FetchLobbies();
+
+        var lobby = lobbies.Where(l => l.Name == roomName).FirstOrDefault();
+        if (lobby == null)
+        {
+            ToastNotification.Show("Room not found");
+            return;
+        }
+
+        await LobbyManager.Instance.JoinLobby(lobby.Id, roomPassword);
     }
 
     public async void CreateRandomRoom()
@@ -46,6 +77,7 @@ public class LobbyUiManager : MonoBehaviour
     public async void ListRooms()
     {
         List<Lobby> lobbies = await LobbyManager.Instance.FetchLobbies();
+        lobbies = lobbies.Where(l => !l.HasPassword).ToList();
 
         foreach (Transform child in roomsListContainer)
         {

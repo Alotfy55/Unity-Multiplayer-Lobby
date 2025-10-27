@@ -50,11 +50,9 @@ public class LobbyManager : MonoBehaviour
         try
         {
             var _lobbyName = string.IsNullOrEmpty(lobbyName) ? "Room" + Random.Range(1000, 9999) : lobbyName;
-            bool isPrivate = !string.IsNullOrEmpty(lobbyPassword);
             var options = new CreateLobbyOptions
             {
-                Password = isPrivate ? lobbyPassword : null,
-                IsPrivate = isPrivate,
+                Password = string.IsNullOrEmpty(lobbyPassword) ? null : lobbyPassword,
                 Data = new Dictionary<string, DataObject>
                 {
                     { "roomName", new DataObject(DataObject.VisibilityOptions.Public, _lobbyName) },
@@ -86,16 +84,17 @@ public class LobbyManager : MonoBehaviour
         catch (LobbyServiceException ex)
         {
             Debug.Log(ex);
-            ToastNotification.Show("Failed to create room");
+            ToastNotification.Show("Failed to create room: " + ex.Message);
         }
     }
 
-    public async void JoinLobby(string lobbyId)
+    public async Task JoinLobby(string lobbyId, string passwword = "")
     {
         try
         {
             var options = new JoinLobbyByIdOptions
             {
+                Password = string.IsNullOrEmpty(passwword) ? null : passwword,
                 Player = new Player
                 {
                     Data = new Dictionary<string, PlayerDataObject>
@@ -151,7 +150,7 @@ public class LobbyManager : MonoBehaviour
             lobbies = lobbies.Where(x => x.Players.Count < x.MaxPlayers).ToList();
             int randomIndex = Random.Range(0, lobbies.Count);
 
-            JoinLobby(lobbies[randomIndex].Id);
+            await JoinLobby(lobbies[randomIndex].Id);
         }
         catch (LobbyServiceException ex)
         {

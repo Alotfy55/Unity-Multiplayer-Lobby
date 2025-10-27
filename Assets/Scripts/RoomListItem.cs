@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using TMPro;
 using Unity.Services.Lobbies.Models;
 using UnityEngine;
@@ -17,9 +18,9 @@ public class RoomListItem : MonoBehaviour
         roomId = lobby.Id;
     }
 
-    public void JoinLobby()
+    public async void JoinLobby()
     {
-        LobbyManager.Instance.JoinLobby(roomId);
+        await LobbyManager.Instance.JoinLobby(roomId);
     }
     
 }
