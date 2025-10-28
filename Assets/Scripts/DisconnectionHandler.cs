@@ -16,7 +16,6 @@ public class DisconnectHandler : MonoBehaviour
     void OnEnable()
     {
         var networkManager = NetworkManager.Singleton;
-        networkManager.OnClientConnectedCallback += OnClientConnected;
         networkManager.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
@@ -25,14 +24,8 @@ public class DisconnectHandler : MonoBehaviour
         var networkManager = NetworkManager.Singleton;
         if (networkManager != null)
         {
-            networkManager.OnClientConnectedCallback -= OnClientConnected;
             networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
         }
-    }
-
-    void OnClientConnected(ulong clientId)
-    {
-        Debug.Log($"Client {clientId} connected");
     }
 
     async void OnClientDisconnected(ulong clientId)
@@ -50,7 +43,6 @@ public class DisconnectHandler : MonoBehaviour
                 var index = (int)clientId;
                 var player = players[index];
                 var playerId = player.Id;
-                Debug.Log($"Removing player {playerId} from lobby {GameConstants.Instance._lobbyId}");
                 if (!string.IsNullOrEmpty(playerId))
                     await LobbyService.Instance.RemovePlayerAsync(GameConstants.Instance._lobbyId, playerId);
 

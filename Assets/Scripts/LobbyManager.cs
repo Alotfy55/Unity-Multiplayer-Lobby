@@ -84,7 +84,7 @@ public class LobbyManager : MonoBehaviour
         catch (LobbyServiceException ex)
         {
             Debug.Log(ex);
-            ToastNotification.Show("Failed to create room: " + ex.Message);
+            ToastNotification.Show("Failed to create room");
         }
     }
 
@@ -231,7 +231,7 @@ public class LobbyManager : MonoBehaviour
 
     private async void StartHeartbeatLoop()
     {
-        while (isHost && enabled && LobbyService.Instance != null && this != null)
+        while (this != null && isHost && enabled && LobbyService.Instance != null)
         {
             await LobbyService.Instance.SendHeartbeatPingAsync(GameConstants.Instance._lobbyId);
             await Task.Delay(15000);

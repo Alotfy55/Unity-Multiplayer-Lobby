@@ -8,10 +8,10 @@ using UnityEngine;
 public class VivoxManager : MonoBehaviour
 {
     public static VivoxManager Instance;
-    public string serverUri = Environment.GetEnvironmentVariable("VIVOX_API_KEY");
-    public string domain = Environment.GetEnvironmentVariable("VIVOX_DOMAIN");
-    public string issuer = Environment.GetEnvironmentVariable("VIVOX_ISSUER");
-    [TextArea] public string tokenKey = Environment.GetEnvironmentVariable("VIVOX_TOKEN_KEY");
+    private string serverUri = Environment.GetEnvironmentVariable("VIVOX_API_KEY");
+    private string domain = Environment.GetEnvironmentVariable("VIVOX_DOMAIN");
+    private string issuer = Environment.GetEnvironmentVariable("VIVOX_ISSUER");
+    private string tokenKey = Environment.GetEnvironmentVariable("VIVOX_TOKEN_KEY");
     public int tokenExpirySeconds = 120;
 
 
@@ -44,6 +44,7 @@ public class VivoxManager : MonoBehaviour
         }
         catch (Exception e)
         {
+            ToastNotification.Show("Voice chat connection failed");
             Debug.LogWarning($"Vivox connect failed (will timeout anyway): {e.Message}");
         }
     }
