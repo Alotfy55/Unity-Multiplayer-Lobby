@@ -3735,7 +3735,7 @@ MonoBehaviour:
   NetworkConfig:
     ProtocolVersion: 0
     NetworkTransport: {fileID: 1626357247}
-    PlayerPrefab: {fileID: 6190737567315831022, guid: bfe5753a01514984ea054f0df91ce51a,
+    PlayerPrefab: {fileID: 4416926081852918481, guid: 64dce48905ffd9b4293e595fa6941544,
       type: 3}
     Prefabs:
       NetworkPrefabsLists:
@@ -3803,8 +3803,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 527c50a0a3f05524cabd81d22fa07261, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _userName: 
-  _lobbyId: 
 --- !u!114 &1626357249
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3817,10 +3815,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6ef9b52557cceca48bf9e55a482f3197, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  serverUri: https://unity.vivox.com/appconfig/11270-lobby-63990-udash
-  domain: mtu1xp.vivox.com
-  issuer: 11270-lobby-63990-udash
-  tokenKey: CO2vPfo6jvJV8pLtJIiFBw7z6Mu4wPII
   tokenExpirySeconds: 120
 --- !u!1 &1820696781
 GameObject:
