@@ -18,7 +18,7 @@ using Random = UnityEngine.Random;
 public class LobbyManager : MonoBehaviour
 {
     public static LobbyManager Instance;
-    private const int MAX_PLAYERS_PER_ROOM = 2;
+    private const int MAX_PLAYERS_PER_ROOM = 20;
     private const string CONNECTION_TYPE = "udp";
     private bool isHost = false;
 
@@ -85,6 +85,10 @@ public class LobbyManager : MonoBehaviour
         {
             Debug.Log(ex);
             ToastNotification.Show("Failed to create room");
+        }
+        finally
+        {
+            LobbyUiManager.Instance.DisableLoadingScreen();
         }
     }
 
@@ -155,6 +159,10 @@ public class LobbyManager : MonoBehaviour
         catch (LobbyServiceException ex)
         {
             Debug.Log(ex);
+        }
+        finally
+        {
+            LobbyUiManager.Instance.DisableLoadingScreen();
         }
     }
 

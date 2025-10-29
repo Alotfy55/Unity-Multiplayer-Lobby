@@ -9,6 +9,7 @@ using UnityEngine;
 
 public class LobbyUiManager : MonoBehaviour
 {
+    public static LobbyUiManager Instance;
     [SerializeField] List<MenuObject> SceneMenus;
 
 
@@ -25,7 +26,16 @@ public class LobbyUiManager : MonoBehaviour
     Transform roomsListContainer;
     [SerializeField]
     Transform roomListItem;
+    [SerializeField]
+    GameObject loadingScreen;
+    [SerializeField]
+    TMP_Text _loadingText;
 
+    private void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+    }
 
     public async void CreateRoom()
     {
@@ -40,7 +50,7 @@ public class LobbyUiManager : MonoBehaviour
             return;
         }
         
-
+        EnableLoadingScreen("Creating Room...");
         await LobbyManager.Instance.CreateLobby(roomName, roomPassword);
     }
     
@@ -66,11 +76,13 @@ public class LobbyUiManager : MonoBehaviour
             return;
         }
 
+        EnableLoadingScreen("Joining Room...");
         await LobbyManager.Instance.JoinLobby(lobby.Id, roomPassword);
     }
 
     public async void CreateRandomRoom()
     {
+        EnableLoadingScreen("Creating Room...");
         await LobbyManager.Instance.CreateLobby("Room " + UnityEngine.Random.Range(1000, 9999));
     }
 
@@ -94,6 +106,7 @@ public class LobbyUiManager : MonoBehaviour
 
     public void JoinRandomRoom()
     {
+        EnableLoadingScreen("Joining Room...");
         LobbyManager.Instance.JoinRandomRoom();
     }
 
@@ -127,6 +140,19 @@ public class LobbyUiManager : MonoBehaviour
         var username = usernameInputField.text;
         GameConstants.Instance.SetUserName(username);
     }
+
+    public void EnableLoadingScreen(string loadingText)
+    {
+        _loadingText.text = loadingText;
+        loadingScreen.SetActive(true);
+    }
+
+    public void DisableLoadingScreen()
+    {
+        _loadingText.text = "";
+        loadingScreen.SetActive(false);
+    }
+
 
 }
 
