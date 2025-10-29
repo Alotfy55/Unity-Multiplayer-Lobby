@@ -7,6 +7,7 @@ public class PlayerManager : NetworkBehaviour
 {
     NetworkVariable<FixedString64Bytes> PlayerName = new NetworkVariable<FixedString64Bytes>(string.Empty, writePerm: NetworkVariableWritePermission.Owner);
     [SerializeField] TMP_Text nameText;
+    [SerializeField] GameObject canvas;
 
     private Camera targetCamera;
 
@@ -49,7 +50,10 @@ public class PlayerManager : NetworkBehaviour
         }
 
         Vector3 dir = nameText.transform.position - targetCamera.transform.position;
-        nameText.transform.forward = dir.normalized;
+        if (dir.sqrMagnitude > 0.001f)
+        {
+            canvas.transform.rotation = Quaternion.LookRotation(dir);
+        }
     }
 
 
