@@ -31,18 +31,26 @@ public class LobbyManager : MonoBehaviour
 
     private async void Start()
     {
+        await IntiallizeServices();
+    }
+
+    private async Task IntiallizeServices()
+    {
+        LobbyUiManager.Instance.EnableLoadingScreen("Connecting to server...");
         await UnityServices.InitializeAsync();
 
         var newPlayerId = Guid.NewGuid().ToString("N").Substring(0, 8);
 
-
-        if (!AuthenticationService.Instance.IsSignedIn)
+        while (!AuthenticationService.Instance.IsSignedIn)
         {
             AuthenticationService.Instance.SwitchProfile(newPlayerId);
             await AuthenticationService.Instance.SignInAnonymouslyAsync();
         }
 
         await VivoxManager.Instance.Initiallize();
+
+        LobbyUiManager.Instance.DisableLoadingScreen();
+        Debug.Log("Unity Services initialized. Player ID: " + AuthenticationService.Instance.PlayerId);
     }
 
     public async Task CreateLobby(string lobbyName, string lobbyPassword = "")
@@ -88,7 +96,8 @@ public class LobbyManager : MonoBehaviour
         }
         finally
         {
-            LobbyUiManager.Instance.DisableLoadingScreen();
+            if (LobbyUiManager.Instance != null)
+                LobbyUiManager.Instance.DisableLoadingScreen();
         }
     }
 
@@ -162,14 +171,23 @@ public class LobbyManager : MonoBehaviour
         }
         finally
         {
-            LobbyUiManager.Instance.DisableLoadingScreen();
+            if (LobbyUiManager.Instance != null)
+                LobbyUiManager.Instance.DisableLoadingScreen();
         }
     }
 
     static async Task<Allocation> CreateRelayAllocation()
     {
-        Allocation alloc = await RelayService.Instance.CreateAllocationAsync(MAX_PLAYERS_PER_ROOM - 1);
-        return alloc;
+        try
+        {
+            Allocation alloc = await RelayService.Instance.CreateAllocationAsync(MAX_PLAYERS_PER_ROOM - 1);
+            return alloc;
+        }
+        catch(RelayServiceException ex)
+        {
+            Debug.Log(ex);
+            throw;
+        }
     }
 
     static async Task<JoinAllocation> CreateRelayJoinAllocation(Lobby lobby)
@@ -186,6 +204,7 @@ public class LobbyManager : MonoBehaviour
             await LobbyService.Instance.RemovePlayerAsync(lobby.Id, AuthenticationService.Instance.PlayerId);
             Debug.LogError("Failed to join relay. You have been removed from the lobby.");
             ToastNotification.Show("Failed to join room");
+            LobbyUiManager.Instance.DisableLoadingScreen();
             throw;
         }
     }

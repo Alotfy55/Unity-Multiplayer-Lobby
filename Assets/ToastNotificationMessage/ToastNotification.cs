@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -329,12 +330,19 @@ public class ToastNotification : MonoBehaviour, IPointerEnterHandler, IPointerEx
     // "HIDE" is nothing more than destroying the object on the screen. This function can be called at any time
     public static void Hide()
     {
-        if (toastNotification.childCount <= 0)
-            return;
-        for (int i = 0; i < toastNotification.childCount; i++)
+        try
         {
-            if (toastNotification.GetChild(i).gameObject.activeSelf == true)
-                Destroy(toastNotification.GetChild(i).gameObject);
+            if (toastNotification.childCount <= 0)
+                return;
+            for (int i = 0; i < toastNotification.childCount; i++)
+            {
+                if (toastNotification.GetChild(i).gameObject.activeSelf == true)
+                    Destroy(toastNotification.GetChild(i).gameObject);
+            }
+        }
+        catch(Exception ex)
+        {
+            Debug.Log(ex);
         }
     }
 

@@ -20,6 +20,7 @@ public class RoomListItem : MonoBehaviour
 
     public async void JoinLobby()
     {
+        LobbyUiManager.Instance.EnableLoadingScreen("Joining Room...");
         await LobbyManager.Instance.JoinLobby(roomId);
     }
     

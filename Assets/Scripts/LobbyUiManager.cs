@@ -143,12 +143,16 @@ public class LobbyUiManager : MonoBehaviour
 
     public void EnableLoadingScreen(string loadingText)
     {
+        if (_loadingText == null || loadingScreen == null)
+            return;
         _loadingText.text = loadingText;
         loadingScreen.SetActive(true);
     }
 
     public void DisableLoadingScreen()
-    {
+    { 
+        if (_loadingText == null || loadingScreen == null)
+            return; 
         _loadingText.text = "";
         loadingScreen.SetActive(false);
     }

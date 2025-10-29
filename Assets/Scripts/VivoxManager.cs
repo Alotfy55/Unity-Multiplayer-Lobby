@@ -27,9 +27,6 @@ public class VivoxManager : MonoBehaviour
     public async Task Initiallize()
     {
         await VivoxService.Instance.InitializeAsync();
-
-        Debug.Log("Using Mic: " + VivoxService.Instance.EffectiveInputDevice.DeviceName);
-        Debug.Log("Using Output: " + VivoxService.Instance.EffectiveOutputDevice.DeviceName);
     }
 
     public async Task ConnectToChannel(string channelName, string channelPassword = "")
@@ -45,7 +42,7 @@ public class VivoxManager : MonoBehaviour
         catch (Exception e)
         {
             ToastNotification.Show("Voice chat connection failed");
-            Debug.LogWarning($"Vivox connect failed (will timeout anyway): {e.Message}");
+            Debug.LogWarning($"Vivox connect failed: {e.Message}");
         }
     }
 
@@ -59,7 +56,7 @@ public class VivoxManager : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogWarning($"Vivox disconnect failed (will timeout anyway): {e.Message}");
+            Debug.LogWarning($"Vivox disconnect failed: {e.Message}");
         }
     }
 }

@@ -50,7 +50,7 @@ public class DisconnectHandler : MonoBehaviour
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"Lobby remove failed (will timeout anyway): {e.Message}");
+                Debug.LogWarning($"Lobby remove failed: {e.Message}");
             }
         }
     }
