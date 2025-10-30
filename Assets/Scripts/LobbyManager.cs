@@ -114,7 +114,7 @@ public class LobbyManager : MonoBehaviour
                     {
                         { "username", new PlayerDataObject(
                             visibility: PlayerDataObject.VisibilityOptions.Member,
-                            value: GameConstants.Instance._userName) 
+                            value: GameConstants.Instance._userName)
                         }
                     }
                 }
@@ -157,6 +157,7 @@ public class LobbyManager : MonoBehaviour
             if (lobbies.Count == 0)
             {
                 ToastNotification.Show("No available rooms to join");
+                LobbyUiManager.Instance.DisableLoadingScreen();
                 return;
             }
 
@@ -183,7 +184,7 @@ public class LobbyManager : MonoBehaviour
             Allocation alloc = await RelayService.Instance.CreateAllocationAsync(MAX_PLAYERS_PER_ROOM - 1);
             return alloc;
         }
-        catch(RelayServiceException ex)
+        catch (RelayServiceException ex)
         {
             Debug.Log(ex);
             throw;
@@ -214,8 +215,8 @@ public class LobbyManager : MonoBehaviour
         await LobbyService.Instance.UpdateLobbyAsync(lobby.Id, new UpdateLobbyOptions
         {
             Data = new Dictionary<string, DataObject> {
-                { 
-                    "relayCode", new DataObject(DataObject.VisibilityOptions.Member, code) 
+                {
+                    "relayCode", new DataObject(DataObject.VisibilityOptions.Member, code)
                 }
             }
         });
